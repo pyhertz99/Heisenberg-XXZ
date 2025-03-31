@@ -3,11 +3,11 @@ from scipy import sparse
 from scipy.special import comb
 from itertools import combinations
 
-#identity matrix
+# identity matrix
 I = sparse.csc_matrix(np.array([[1,0],
                                 [0,1]]), dtype=complex)
 
-#pauli spin matrices
+# pauli spin matrices
 sigma_x = sparse.csc_matrix(np.array([[0,1],
                                       [1,0]]), dtype=complex)
 
@@ -30,7 +30,7 @@ def createConnectivityMatrices(N, J_xy, J_z, boundary=0.0):
         Number of sites.
     J_xy : float
         J_xy sites coupling constant.
-    J_z : float
+    J_z : TYPE
         J_z sites coupling constant.
     boundary: float, optional
         Connection at the edges of the chain; 0 for open boundary conditions, 1 for periodic boundary conditions.
@@ -136,6 +136,38 @@ def createCompleteHamiltonian(N, M_xy, M_z, B_array):
                 
     return H
 
+
+def subspaceBasisBinary(N,L):
+    """
+    Creates array of binary representation
+    of subspace basis vectors.
+    
+    Parameters
+    ----------
+    N : integer
+        Number of sites.
+    L : integer
+        Number of excited states.
+
+    Returns
+    -------
+    spin_basis : array (M,N)
+        Binary representation of subspace basis.
+
+    """
+    
+    M = int(comb(N,L)) #subspace dimension
+    
+    i = 0
+    spin_basis = np.full((M,N),0)
+    for c in combinations(range(N),L):
+        for j in c:
+            spin_basis[i,j] = 1
+        i += 1
+    
+    return spin_basis
+
+
 def subspaceTransformationMatrix(N,L,M):
     """
     Creates transformation matrix from complete hilbert
@@ -162,15 +194,9 @@ def subspaceTransformationMatrix(N,L,M):
     D = 2**N
     
     #array of binary represented basis vectors
-    spin_basis = np.full((M,N),0)
+    spin_basis = subspaceBasisBinary(N, L)
     #corresponding complete vector indices
     spin_indices = np.full(M,0)
-
-    i = 0
-    for c in combinations(range(N),L):
-        for j in c:
-            spin_basis[i,j] = 1
-        i += 1
 
     vectorIndex = lambda spin_state : int("".join(str(x) for x in spin_state), 2)
 
@@ -267,7 +293,11 @@ def evolveState(t_max,t_steps,spectrum,eigvecs,eigvecs_herm,psi_0,M):
 
     c_0 = eigvecs_herm @ psi_0
     
-    ts = np.linspace(0,t_max,t_steps)
+    if t_steps == 1:
+        ts = np.array([t_max])
+    else:
+        ts = np.linspace(0,t_max,t_steps)
+        
     psi_array = np.full((t_steps,M),0j) # array of spin basis states in time
 
     c_t = np.full(M,0j)
@@ -358,12 +388,10 @@ def contourImg(psi_array,t_steps,PI,N):
 
     Parameters
     ----------
-    c_array : array (t_steps,M)
-        Array of state vectors in stationary basis for each time step.
+    psi_array : array (t_steps,M)
+        Array of state vectors.
     t_steps : int
         Number of time steps to compute.
-    eigvecs : array (M,M)
-        Corresponding eigenvectors.
     PI: sparse array (D,M)
         Transformation matrix from complete space
         to subspace.
@@ -470,6 +498,100 @@ def singleSpin(N,site):
     
     return psi_0
 
+def randomState(M):
+    """
+    Cretes random state of dimension M.
+
+    Parameters
+    ----------
+    M : int
+        Hilbert space dimension.
+
+    Returns
+    -------
+    psi_0 : array of complex (M)
+        Normalized state vector.
+
+    """
+    
+    psi_0 = np.zeros(M,dtype="complex")
+    
+    re = np.random.uniform(low=-1.0,high=1.0,size=M)
+    im = np.random.uniform(low=-1.0,high=1.0,size=M)
+    
+    for i in range(M):
+        psi_0[i] = re[i] + 1j*im[i]
+        
+    dot = np.conjugate(psi_0) @ psi_0
+    psi_0 *= 1 / np.sqrt(np.real(dot))
+    
+    return psi_0
+
+
+def XZRotationState(k,N,PI):
+    """
+    Creates a state with k-rotated spin.
+
+    Parameters
+    ----------
+    k : int
+        Number of rotations.
+    N : integer
+        Number of sites.
+    PI: sparse array (D,M)
+        Transformation matrix from complete space
+        to subspace.
+
+    Returns
+    -------
+    psi_0 : array (M)
+        k-rotated state.
+
+    """
+    
+    theta = (k/N)*2*np.pi
+    R = np.array([[np.cos(theta/2),-np.sin(theta/2)],
+                  [np.sin(theta/2),np.cos(theta/2)]])
+    
+    spin_state = np.array([1.0,0.0])
+    complete_state = 1
+    for i in range(N):
+        complete_state = np.kron(complete_state,spin_state)
+        spin_state = R @ spin_state
+    
+    return PI @ complete_state.T
+
+
+#code for entanglement and information
+
+def densityMatrix(psi_L,PI):
+    """
+    Computes complete-space density matrix of
+    given subspace vector in CSC form.
+
+    Parameters
+    ----------
+    psi_L : array of complex (M)
+        Subspace state vector.
+    PI: sparse array (D,M)
+        Transformation matrix from complete space
+        to subspace.
+
+    Returns
+    -------
+    rho : CSC array of complex (D,D)
+        Complete-space density matrix.
+
+    """
+    
+    psi_L = sparse.csc_matrix(psi_L)
+    
+    psi = PI.T @ psi_L.T
+    rho = psi.conjugate() * psi.T
+    
+    return rho
+    
+
 def rightPartialTrace(rho,dim_A,dim_B):
     """
     Performs partial trace over system B.
@@ -500,6 +622,7 @@ def rightPartialTrace(rho,dim_A,dim_B):
 
     return rho_A
 
+
 def leftPartialTrace(rho,dim_A,dim_B):
     """
     Performs partial trace over system A.
@@ -529,41 +652,35 @@ def leftPartialTrace(rho,dim_A,dim_B):
     
     return rho_B
 
-def siteDensityMatrix(psi_L, PI, site, N):
+
+def siteDensityMatrix(rho,site,N):
     """
-    Computes reduced density matrix for chosen site.
+    Computes reduced density matrix on single site.
 
     Parameters
     ----------
-    psi_L : array (M) of complex
-        State vector in L-subspace.
-    PI: sparse array (D,M)
-        Transformation matrix from complete space
-        to subspace.
+    rho : CSC array of complex (D,D)
+        Complete-space density matrix.
     site : int
-        Site to calculate density matrix for.
+        Site to compute density matrix on.
     N : int
         Number of sites.
 
     Returns
     -------
-    array (2,2)
-        Reduced density matrix.
+    rho_tr :  CSC array of complex (2,2)
+        Site denstiy matrix.
 
     """
-    
-    psi_L = sparse.csc_matrix(psi_L)
-    
-    psi = PI.T @ psi_L.T
-    rho = psi.conjugate() * psi.T
     
     dim_A = 2**site
     dim_B = 2**(N-site)
     rho_tr = rightPartialTrace(rho, dim_A, dim_B)
     rho_tr = leftPartialTrace(rho_tr, dim_A//2, 2)
     
-    return rho_tr.toarray()
+    return rho_tr
     
+
 def xlogx(x):
     """
     Computes x * log(x) and checks for small values.
@@ -582,7 +699,7 @@ def entanglementEntropy(rho,dim):
 
     Parameters
     ----------
-    rho : array (2,2)
+    rho : CSC array of complex (2,2)
         Density matrix.
     dim : int
         Dimension of density matrix.
@@ -594,6 +711,7 @@ def entanglementEntropy(rho,dim):
 
     """
     
+    rho = rho.toarray()
     rho_diag = np.linalg.eigvalsh(rho)
     
     s = 0
@@ -602,6 +720,7 @@ def entanglementEntropy(rho,dim):
         s -= xlogx(lamb)
     
     return s
+
 
 def entanglementEntropyArray(psi_array, t_steps, PI, site, N):
     """
@@ -634,14 +753,17 @@ def entanglementEntropyArray(psi_array, t_steps, PI, site, N):
     
     for i in range(t_steps):
         psi = psi_array[i]
-        rho_tr = siteDensityMatrix(psi, PI, site, N)
-        entropy_array[i] = entanglementEntropy(rho_tr, 2)
+        rho = densityMatrix(psi,PI)
+        rho_tr = siteDensityMatrix(rho,site,N)
+        entropy_array[i] = entanglementEntropy(rho_tr,2)
         
     return entropy_array
 
+
 def domainWallEntropyArray(psi_array,t_steps,PI,N):
     """
-    
+    Computes entanglement-entropy array between
+    left and right half of the sites.
 
     Parameters
     ----------
@@ -666,16 +788,267 @@ def domainWallEntropyArray(psi_array,t_steps,PI,N):
     entropy_array = np.full(t_steps,0.0)
     
     for i in range(t_steps):
-        psi_L = sparse.csc_matrix(psi_array[i])
-        
-        psi = PI.T @ psi_L.T
-        rho = psi.conjugate() * psi.T
+        rho = densityMatrix(psi_array[i],PI)
         
         dim_half = 2**(N//2)
         rho_tr = rightPartialTrace(rho, dim_half, dim_half)
         
-        rho_tr = rho_tr.toarray()
-        
         entropy_array[i] = entanglementEntropy(rho_tr, 2**(N//2))
         
     return entropy_array
+
+
+def leftEntropyLattice(rho,l):
+    """
+    Computes entropy left-sublattice.
+
+    Parameters
+    ----------
+    rho : CSC array of complex (2,2)
+        Density matrix.
+    l : int
+        Number of layer (0 to N-1).
+
+    Returns
+    -------
+    I_list : list (l+1)
+        Entropy left-sublattice.
+    """
+    
+    I_list = []
+    
+    if l == 0:
+        I = entanglementEntropy(rho,2**(l+1))
+        I_list.append(I)
+        
+        return I_list
+    
+    I = entanglementEntropy(rho,2**(l+1))
+    
+    rho_tr = rightPartialTrace(rho,2**l,2)
+    I_sub = leftEntropyLattice(rho_tr,l-1)
+    
+    I_list.append(I)
+    I_list = I_list + I_sub
+    
+    return I_list
+
+
+def rightEntropyLattice(rho,l):
+    """
+    Computes entropy right-sublattice.
+
+    Parameters
+    ----------
+    rho : CSC array of complex (2,2)
+        Density matrix.
+    l : int
+        Number of layer (0 to N-1).
+
+    Returns
+    -------
+    I_list : list (l+1)
+        Entropy right-sublattice.
+    """
+    
+    I_list = []
+    
+    if l == 0:
+        I = entanglementEntropy(rho,2**(l+1))
+        I_list.append([I])
+        
+        return I_list
+    
+    I = entanglementEntropy(rho,2**(l+1))
+    
+    rho_tr_left = rightPartialTrace(rho,2**l,2)
+    rho_tr_right = leftPartialTrace(rho,2,2**l)
+    
+    I_sub_left = leftEntropyLattice(rho_tr_left,l-1)
+    I_sub_right = rightEntropyLattice(rho_tr_right,l-1)
+    
+    I_list.append([I])
+    
+    for i in range(1,l+1):
+        list_i = [I_sub_left[i-1]]
+        list_i = list_i + I_sub_right[i-1]
+
+        I_list.append(list_i)
+        
+    return I_list
+
+
+def entropyLattice(rho,N):
+    """
+    Computes complete entropy lattice.
+
+    Parameters
+    ----------
+    rho : CSC array of complex (2,2)
+        Density matrix.
+    N : int
+        Number of sites.
+
+    Returns
+    -------
+    staircase list
+        Entropy lattice.
+
+    """
+    
+    return rightEntropyLattice(rho,N-1)
+        
+
+def latticePoints(N):
+    """
+    Computes (x,y) positions of triangular lattice.
+
+    Parameters
+    ----------
+    N : int
+        Number of sites.
+
+    Returns
+    -------
+    xs : array of float (N(N+1)//2)
+        X coordinates.
+    ys : array of float (N(N+1)//2)
+        y coordinates
+    """
+    
+    xs = np.array([],dtype=float)
+    ys = np.array([],dtype=float)
+    
+    for i in range(N):
+        y = (N-i-1)*np.sqrt(3)/2
+        
+        xs_i = np.linspace(-0.5*i,0.5*i,i+1)
+        ys_i = np.full(i+1,y)
+        
+        xs = np.concatenate((xs,xs_i))
+        ys = np.concatenate((ys,ys_i))
+        
+    return xs, ys
+    
+    
+    
+def informationLattice(rho,N):
+    """
+    Computes infromation lattice values.
+
+    Parameters
+    ----------
+    rho : CSC array of complex (2,2)
+        Density matrix.
+    N : int
+        Number of sites.
+
+    Returns
+    -------
+    informationLat : list
+        Ordered list of rows of entropy lattice.
+
+    """
+    
+    entropyLat = entropyLattice(rho,N)
+    informationLat = []
+    
+    for i in range(N):
+        l = N-i-1
+        lat_i = []
+            
+        for j in range(i+1):
+            if i >= N-2:
+                I_int = 0
+            else:
+                S_int = entropyLat[i+2][j+1]
+                I_int = l-1 - S_int
+            
+            if i == N-1:
+                I_A = 0
+                I_B = 0
+            else:
+                S_A = entropyLat[i+1][j]
+                S_B = entropyLat[i+1][j+1]
+                I_A = l - S_A
+                I_B = l - S_B
+            
+            S_AB = entropyLat[i][j]
+            I_AB = l+1 - S_AB
+            
+            lat_i.append(I_AB - I_A - I_B + I_int)
+        
+        informationLat.append(lat_i)
+    
+    return informationLat
+            
+def areaLaw(rho,N):
+    """
+    Computes mutual information between connected
+    region of sites and its complement.
+
+    Parameters
+    ----------
+    rho : CSC array of complex (2,2)
+        Density matrix.
+    N : int
+        Number of sites.
+
+    Returns
+    -------
+    I : array (N-1)
+        Mutual information for each subsystem.
+
+    """
+    
+    I = np.zeros(N-1,dtype=float)
+    
+    for i in range(0,N-1):
+        dim_L = 2**(i+1)
+        dim_R = 2**(N-i-1)
+        rho_L = rightPartialTrace(rho, dim_L, dim_R)
+        rho_R = leftPartialTrace(rho, dim_L, dim_R)
+        
+        I_L = i+1 - entanglementEntropy(rho_L, dim_L)
+        I_R = N-i-1 - entanglementEntropy(rho_R, dim_R)
+        
+        I[i] = N - I_L - I_R
+    
+    return I
+
+#code for Peres lattice
+
+def peresLattice(A,spectrum,eigvecs_herm):
+    """
+    Creates Peres lattice for given subspace
+    operator A.
+
+    Parameters
+    ----------
+    A : csc array of complex (M,M)
+        L-magnetization subspace operator.
+    spectrum : array of float (M)
+        Spectrum of subspace hamiltonian.
+    eigvecs_herm : array of complex (M,M)
+        Normalized eigenvectors.
+
+    Returns
+    -------
+    lattice : array of float (M,2)
+        Points (E,<A>) of Peres lattice.
+
+    """
+    
+    M = spectrum.size
+    lattice = np.zeros((M,2),dtype="float")
+    
+    for i in range(M):
+        E = spectrum[i]
+        eigvec = eigvecs_herm[i]
+        
+        A_mean = np.conjugate(eigvec) @ A @ eigvec
+        
+        lattice[i] = [E,np.real(A_mean)]
+        
+    return lattice
+    

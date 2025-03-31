@@ -1,6 +1,6 @@
 """
 Evolves domain-wall state with given parameters
-and draws its contour plot.
+and plots its survival probability as a function of time.
 """
 
 import numpy as np
@@ -9,9 +9,14 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from heisenbergXXZ import *
 
+rcParams['mathtext.fontset'] = 'stix'
+rcParams['font.family'] = 'STIXGeneral'
+plt.rcParams.update({'font.size': 25})
+
+
 # PARAMETERS
 
-N = 14 #number of cells
+N = 10 #number of cells
 L = N//2 #number of excited cells (L <= N)
 M = int(comb(N,L))
 
@@ -21,8 +26,10 @@ J_z = 0.0 #coupling constant J_z
 B_0 = 0.0 #magnetic field mean value
 delta_B = 0.0 #magnetic field spread
 
-t_max = 10
+t_max = 6.6
 t_steps = 100
+
+k = N/4
 
 
 # COMPUTATION
@@ -44,26 +51,19 @@ spectrum, eigvecs = diagonalizeHamiltonian(H)
 eigvecs_herm = eigvecs.transpose().conjugate()
 
 #create domain wall state
-psi_0 = domainWall(M)
+psi_0 = XZRotationState(k, N, PI)
 
 #evolve state
 psi_array = evolveState(t_max,t_steps,spectrum,eigvecs,eigvecs_herm,psi_0,M)
 
-#generate contour plot
-dw_img = contourImg(psi_array, t_steps, PI, N)
+#compute survival probability
+survival_array = survivalProbability(psi_array, t_steps)
+ts = np.linspace(0,t_max,t_steps)
 
-#%% PLOTTING
-
-rcParams['mathtext.fontset'] = 'stix'
-rcParams['font.family'] = 'STIXGeneral'
-plt.rcParams.update({'font.size': 30})
-
-
-fig, ax = plt.subplots(1,1, figsize=(2*6,2*4), dpi=300)
-plot = ax.imshow(dw_img, aspect="auto", interpolation="none", extent=[80,120,0,t_max])
-ax.set_xticks([])
-ax.set_ylabel(r'$t$')
-fig.colorbar(plot)
-fig.tight_layout()
+fig, ax = plt.subplots(1,1, figsize=(6,4))
+plt.plot(ts, survival_array)
+ax.set_xlabel(r'$t$')
+ax.set_ylabel(r'$\left< \psi(t) | \psi_0 \right>$')
+ax.set_ylim(0,1)
 
 plt.show()

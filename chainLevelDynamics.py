@@ -50,7 +50,7 @@ rcParams['mathtext.fontset'] = 'stix'
 rcParams['font.family'] = 'STIXGeneral'
 plt.rcParams.update({'font.size': 30})
 
-fig, ax = plt.subplots(1,1, figsize=(2*6,2*4), dpi=300)
+fig, ax = plt.subplots(1,1, figsize=(2*6,2*4))
 ax.plot(J_zs, lines, color="black", alpha=0.4)
 ax.plot(J_zs, dw_line, color="red", alpha=0.6)
 ax.plot(J_zs, neel_line, color="blue", alpha=0.4)

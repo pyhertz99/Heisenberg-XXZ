@@ -73,7 +73,7 @@ rcParams['mathtext.fontset'] = 'stix'
 rcParams['font.family'] = 'STIXGeneral'
 plt.rcParams.update({'font.size': 30})
 
-fig, ax = plt.subplots(1,1, figsize=(2*6,2*4), dpi=300)
+fig, ax = plt.subplots(1,1, figsize=(2*6,2*4))
 
 for i in range(len(delta_B_array)):
     delta_B = delta_B_array[i]

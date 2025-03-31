@@ -17,7 +17,7 @@ plt.rcParams.update({'font.size': 25})
 
 # PARAMETERS
 
-N = 14 #number of cells
+N = 10 #number of cells
 L = N//2 #number of excited cells (L <= N)
 M = int(comb(N,L))
 
@@ -25,7 +25,7 @@ J_xy = 1.0 #coupling constant J_x = J_y
 J_z = 2.0 #coupling constant J_z
 
 B_0 = 0.0 #magnetic field mean value
-delta_B = 0.0 #magnetic field spread
+delta_B = 10.0 #magnetic field spread
 
 t_max = 10
 t_steps = 100
@@ -65,7 +65,7 @@ rcParams['mathtext.fontset'] = 'stix'
 rcParams['font.family'] = 'STIXGeneral'
 plt.rcParams.update({'font.size': 30})
 
-fig, ax = plt.subplots(1,1, figsize=(2*6,2*4), dpi=300)
+fig, ax = plt.subplots(1,1, figsize=(2*6,2*4))
 plt.plot(ts, dw_entropy_array)
 ax.set_xlabel(r'$t$')
 ax.set_ylabel(r'$S$')

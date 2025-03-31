@@ -1,5 +1,5 @@
 """
-Evolves Neel state with given parameters
+Evolves domain-wall state with given parameters
 and draws its contour plot.
 """
 
@@ -9,20 +9,27 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from heisenbergXXZ import *
 
+rcParams['mathtext.fontset'] = 'stix'
+rcParams['font.family'] = 'STIXGeneral'
+plt.rcParams.update({'font.size': 25})
+
+
 # PARAMETERS
 
-N = 14 #number of cells
+N = 10 #number of cells
 L = N//2 #number of excited cells (L <= N)
 M = int(comb(N,L))
 
 J_xy = 1.0 #coupling constant J_x = J_y
-J_z = 2.0 #coupling constant J_z
+J_z = 0.0 #coupling constant J_z
 
 B_0 = 0.0 #magnetic field mean value
 delta_B = 0.0 #magnetic field spread
 
-t_max = 10
+t_max = 6.6
 t_steps = 100
+
+k = N/8
 
 
 # COMPUTATION
@@ -43,19 +50,20 @@ H = createHamiltonian(N, PI, M_xy, M_z, B)
 spectrum, eigvecs = diagonalizeHamiltonian(H)
 eigvecs_herm = eigvecs.transpose().conjugate()
 
-#create Neel state
-psi_0 = neel(N, M, spin_indices)
+#create domain wall state
+psi_0 = XZRotationState(k, N, PI)
 
 #evolve state
 psi_array = evolveState(t_max,t_steps,spectrum,eigvecs,eigvecs_herm,psi_0,M)
 
 #generate contour plot
-neel_img = contourImg(psi_array, t_steps, PI, N)
+img = contourImg(psi_array, t_steps, PI, N)
 
-#%% PLOTTING
 
-fig, ax = plt.subplots(1,1, figsize=(2*6,2*4), dpi=300)
-ax.imshow(neel_img, aspect="auto", interpolation="none", extent=[80,120,0,t_max])
+# PLOTTING
+
+fig, ax = plt.subplots(1,1, figsize=(6,4))
+ax.imshow(img, aspect="auto", interpolation="none", extent=[80,120,0,t_max])
 ax.set_xticks([])
 ax.set_ylabel(r'$t$')
 fig.tight_layout()
