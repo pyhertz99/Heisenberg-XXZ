@@ -4,3 +4,5 @@ README for Heisenberg-XXZ repository
 - other files are intended to either create, save or plot particular examples
 - these files can save samples in the data/ folder (create it with subfolders domain-wall, neel and single-spin if not included) and analyse already saved samples
 - for further info on this topic see the notes/spin-models.pdf file (czech)
+
+The author would like to thank Charles University for its financial support on this project.
